@@ -10,9 +10,17 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ProductController extends Controller
 {
-    public function index(Request $request): JsonResponse {
+    public function index(Request $request): JsonResponse
+    {
         return response()->json([
             'data' => ProductResource::collection(Product::paginate(10)),
+        ], 200);
+    }
+
+    public function show(Product $product): JsonResponse
+    {
+        return response()->json([
+            'data' => new ProductResource($product),
         ], 200);
     }
 }

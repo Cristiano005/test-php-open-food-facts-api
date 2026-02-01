@@ -16,3 +16,4 @@ Route::get('/', function (Request $request) {
 });
 
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/product/{product:code}', [ProductController::class, 'show']);
