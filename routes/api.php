@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\ProductController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -11,5 +12,7 @@ Route::get('/', function (Request $request) {
         'memory_use' => memory_get_usage(true),
         'last_datetime_executed_cron' => now(),
     ], 200);
-    
+
 });
+
+Route::get('/products', [ProductController::class, 'index']);
