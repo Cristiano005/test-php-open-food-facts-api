@@ -18,3 +18,4 @@ Route::get('/', function (Request $request) {
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/product/{product:code}', [ProductController::class, 'show']);
 Route::put('/products/{product:code}', [ProductController::class, 'update']);
+Route::delete('/products/{product:code}', [ProductController::class, 'destroy']);

@@ -25,7 +25,8 @@ class ProductController extends Controller
         ], 200);
     }
 
-    public function update(Request $request, Product $product) {
+    public function update(Request $request, Product $product)
+    {
 
         $validated = $request->validate([
             'product_name' => ['nullable', 'string', 'max:255'],
@@ -39,6 +40,19 @@ class ProductController extends Controller
             'status' => 200,
             'message' => 'Product updated successfully!',
             'data' => $product,
+        ], 200);
+    }
+
+    public function destroy(Product $product): JsonResponse
+    {
+        $product->status = 'trash';
+
+        $product->save();
+        
+        return response()->json([
+            'status' => 200,
+            'message' => 'Product was deleted successfully!',
+            'data' => [],
         ], 200);
     }
 }
