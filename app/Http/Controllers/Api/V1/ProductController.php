@@ -7,10 +7,11 @@ use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Throwable;
 
 class ProductController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
         return response()->json([
             'data' => ProductResource::collection(Product::paginate(10)),
@@ -21,6 +22,23 @@ class ProductController extends Controller
     {
         return response()->json([
             'data' => new ProductResource($product),
+        ], 200);
+    }
+
+    public function update(Request $request, Product $product) {
+
+        $validated = $request->validate([
+            'product_name' => ['nullable', 'string', 'max:255'],
+            'quantity' => ['nullable', 'string', 'max:75'],
+            'status' => ['required', 'string', 'in:published'],
+        ]);
+
+        $product->update($validated);
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Product updated successfully!',
+            'data' => $product,
         ], 200);
     }
 }
