@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('products', function (Blueprint $table) {
             $table->string('code', 25)->primary();
             $table->string('product_name');
-            $table->string('quantity', 15);
+            $table->string('quantity', 75)->nullable();
             $table->text('url');
             $table->string('creator');
             $table->timestamp('created_t');
