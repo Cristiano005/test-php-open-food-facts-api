@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Product;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -46,50 +47,46 @@ class ImportProductsCommand extends Command
         $arrayOfproductsFiles->each(function (string $file) use ($baseUrl) {
 
             $handle = gzopen("{$baseUrl}{$file}", 'r');
-            // gzseek($handle, 580295);
-            $count = 1;
+            $lastOffset = Cache::get("last-offset-{$file}", 0);
+            gzseek($handle, $lastOffset);
+            $products = collect([]);
 
-            while (!gzeof($handle) and $count <= 100) {
+            for ($count = 1; !gzeof($handle) and $count <= 100; $count++) {
 
-                $line = json_decode(gzgets($handle));
+                $line = json_decode(gzgets($handle), true);
 
-                $validator = Validator::make(collect($line)->toArray(), [
-                    'code' => ['required', 'string', 'max:25', 'unique:products'],
+                if (!$line['code']) continue;
+
+                $products->push([
+                    'code' => $line['code'],
+                    'product_name' => $line['product_name'],
+                    'quantity' => Str::of($line['quantity'])->trim()->isEmpty() ? null : $line['quantity'],
+                    'url' => $line['url'],
+                    'creator' => $line['creator'],
+                    'created_t' => Carbon::createFromTimestamp($line['created_t'])->format('Y-m-d H:i:s'),
+                    'created_datetime' => Carbon::parse($line['created_datetime'])->format('Y-m-d H:i:s'),
+                    'imported_t' => now()->format('Y-m-d H:i:s'),
                 ]);
+            }
 
-                if ($validator->fails()) {
-                    continue;
-                }
+            if ($products->isNotEmpty()) {
 
                 try {
-
-                    Product::create([
-                        'code' => $line->code,
-                        'product_name' => $line->product_name,
-                        'quantity' => Str::of($line->quantity)->trim()->isEmpty() ? null : $line->quantity,
-                        'url' => $line->url,
-                        'creator' => $line->creator,
-                        'created_t' => Carbon::createFromTimestamp($line->created_t)->format('Y-m-d H:i:s'),
-                        'created_datetime' => Carbon::parse($line->created_datetime)->format('Y-m-d H:i:s'),
-                        'imported_t' => Carbon::createFromTimestamp(now())->format('Y-m-d H:i:s'),
-                    ]);
+                    Product::upsert($products->toArray(), ['code'], ['product_name', 'quantity', 'url', 'imported_t']);
                 } catch (Throwable $e) {
-
                     Log::error('Error to import product', [
-                        'product_code' => $line->code,
                         'file' => $e->getFile(),
                         'exception' => $e->getMessage(),
                     ]);
-
-                    continue;
                 }
 
-                $count++;
+                $offset = gzeof($handle) ? 0 : gztell($handle);
+                Cache::forever(Str::lower("last-offset-{$file}"), $offset);
             }
-
-            // $finalLineInBytes = gztell($handle); // 580295
 
             gzclose($handle);
         });
+
+        Cache::forever('last-cron-updated', now()->format('Y-m-d H:i:s'));
     }
 }
