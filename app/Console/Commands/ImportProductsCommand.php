@@ -5,88 +5,96 @@ namespace App\Console\Commands;
 use App\Models\Product;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Throwable;
 
 class ImportProductsCommand extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'app:import-products-command';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
     protected $description = 'Import Products it"s a command for get x products per day';
 
-    /**
-     * Execute the console command.
-     */
+    const string filesURL = 'https://challenges.coode.sh/food/data/json/index.txt';
+    const string fileURL = 'https://challenges.coode.sh/food/data/json/';
+
     public function handle()
     {
-        $arrayOfproductsFiles = Explode("\n", Http::get('https://challenges.coode.sh/food/data/json/index.txt')->body());
-        $arrayOfproductsFiles = collect($arrayOfproductsFiles)->reject(function (string $value) {
-            return empty($value);
-        });
+        $productsFiles = $this->extractFiles();
 
-        if ($arrayOfproductsFiles->isEmpty()) {
-            return;
+        if ($productsFiles->isEmpty()) return;
+
+        try {
+            $this->insertProductsByFile($productsFiles);
+        } catch (Throwable $e) {
+            Log::error('Error to import product', [
+                'file' => $e->getFile(),
+                'exception' => $e->getMessage(),
+            ]);
         }
 
-        $baseUrl = 'https://challenges.coode.sh/food/data/json/';
+        Cache::forever('last-cron-updated', now()->format('Y-m-d H:i:s'));
+    }
 
-        $arrayOfproductsFiles->each(function (string $file) use ($baseUrl) {
+    private function extractFiles(): Collection
+    {
+        $productsFiles = explode("\n", Http::get(self::filesURL)->body());
 
-            $handle = gzopen("{$baseUrl}{$file}", 'r');
+        $productsFiles = collect($productsFiles)->filter(function (string $value) {
+            return !empty($value);
+        });
+
+        return $productsFiles;
+    }
+
+    private function insertProductsByFile(Collection $productsFiles): void
+    {
+        $productsFiles->each(function (string $file) {
+
+            $stream = gzopen(self::fileURL . $file, 'r');
+
             $lastOffset = Cache::get("last-offset-{$file}", 0);
-            gzseek($handle, $lastOffset);
-            $products = collect([]);
 
-            for ($count = 1; !gzeof($handle) and $count <= 100; $count++) {
+            gzseek($stream, $lastOffset);
 
-                $line = json_decode(gzgets($handle), true);
-
-                if (!$line['code']) continue;
-
-                $products->push([
-                    'code' => $line['code'],
-                    'product_name' => $line['product_name'],
-                    'quantity' => Str::of($line['quantity'])->trim()->isEmpty() ? null : $line['quantity'],
-                    'url' => $line['url'],
-                    'creator' => $line['creator'],
-                    'created_t' => Carbon::createFromTimestamp($line['created_t'])->format('Y-m-d H:i:s'),
-                    'created_datetime' => Carbon::parse($line['created_datetime'])->format('Y-m-d H:i:s'),
-                    'imported_t' => now()->format('Y-m-d H:i:s'),
-                ]);
-            }
+            $products = $this->prepareProducts($stream);
 
             if ($products->isNotEmpty()) {
 
-                try {
-                    Product::upsert($products->toArray(), ['code'], ['product_name', 'quantity', 'url', 'imported_t']);
-                } catch (Throwable $e) {
-                    Log::error('Error to import product', [
-                        'file' => $e->getFile(),
-                        'exception' => $e->getMessage(),
-                    ]);
-                }
+                Product::upsert($products->toArray(), ['code'], ['product_name', 'quantity', 'url', 'imported_t']);
 
-                $offset = gzeof($handle) ? 0 : gztell($handle);
+                $offset = gzeof($stream) ? 0 : gztell($stream);
                 Cache::forever(Str::lower("last-offset-{$file}"), $offset);
             }
 
-            gzclose($handle);
+            gzclose($stream);
         });
+    }
 
-        Cache::forever('last-cron-updated', now()->format('Y-m-d H:i:s'));
+    private function prepareProducts($stream): Collection
+    {
+        $products = collect([]);
+
+        for ($count = 1; !gzeof($stream) and $count <= 100; $count++) {
+
+            $line = json_decode(gzgets($stream), true);
+
+            if (!$line || !$line['code']) continue;
+
+            $products->push([
+                'code' => Str::of($line['code'])->trim()->replace('"', ""),
+                'product_name' => $line['product_name'],
+                'quantity' => Str::of($line['quantity'])->trim()->isEmpty() ? null : $line['quantity'],
+                'url' => $line['url'],
+                'creator' => $line['creator'],
+                'created_t' => Carbon::createFromTimestamp($line['created_t'])->format('Y-m-d H:i:s'),
+                'created_datetime' => Carbon::parse($line['created_datetime'])->format('Y-m-d H:i:s'),
+                'imported_t' => now()->format('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return $products;
     }
 }
