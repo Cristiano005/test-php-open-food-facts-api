@@ -11,7 +11,7 @@ use Throwable;
 
 class ProductController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
         return response()->json([
             'data' => ProductResource::collection(Product::paginate(10)),
@@ -27,7 +27,6 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
-
         $validated = $request->validate([
             'product_name' => ['nullable', 'string', 'max:255'],
             'quantity' => ['nullable', 'string', 'max:75'],
@@ -36,23 +35,14 @@ class ProductController extends Controller
 
         $product->update($validated);
 
-        return response()->json([
-            'status' => 200,
-            'message' => 'Product updated successfully!',
-            'data' => $product,
-        ], 200);
+        return response()->json(['data' => $product], 200);
     }
 
     public function destroy(Product $product): JsonResponse
     {
         $product->status = 'trash';
-
         $product->save();
-        
-        return response()->json([
-            'status' => 200,
-            'message' => 'Product was deleted successfully!',
-            'data' => [],
-        ], 200);
+
+        return response()->json(['data' => $product], 200);
     }
 }
