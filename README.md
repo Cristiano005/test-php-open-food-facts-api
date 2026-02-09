@@ -1,59 +1,57 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+<h1 style='text-align: center;'>  PHP Challenge 20200916 </h1>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Introdução
 
-## About Laravel
+Nesse desafio trabalharemos no desenvolvimento de uma REST API para utilizar os dados do projeto Open Food Facts, que é um banco de dados aberto com informação nutricional de diversos produtos alimentícios.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+O projeto tem como objetivo dar suporte a equipe de nutricionistas da empresa Fitness Foods LC para que eles possam revisar de maneira rápida a informação nutricional dos alimentos que os usuários publicam pela aplicação móvel.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## O projeto
+ 
+- Criar um banco de dados MySQL no Heroku: https://elements.heroku.com/addons/jawsdb
+- Criar uma REST API usando PHP, preferência usando CodeIgniter 3.1.9 ou superior;
+- Integrar a API com o banco de dados criado para persistir os dados
+- Desenvolver Testes Unitários
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Modelo de Dados:
 
-## Learning Laravel
+Para a definição do modelo, consultar o arquivo [products.json](./products.json) que foi exportado do Open Food Facts, um detalhe importante é que temos dois campos personalizados para poder fazer o controle interno do sistema e que deverão ser aplicados em todos os alimentos no momento da importação, os campos são:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- `imported_t`: campo do tipo Date com a dia e hora que foi importado;
+- `status`: campo do tipo Enum com os possíveis valores draft, trash e published;
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Sistema do CRON
 
-## Laravel Sponsors
+Para prosseguir com o desafio, precisaremos criar na API um sistema de atualização que vai importar os dados para a Base de Dados com a versão mais recente do [Open Food Facts](https://br.openfoodfacts.org/data) uma vez ao día. Adicionar aos arquivos de configuração o melhor horário para executar a importação.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+A lista de arquivos do Open Food, pode ser encontrada em: 
 
-### Premium Partners
+- https://challenges.coode.sh/food/data/json/index.txt
+- https://challenges.coode.sh/food/data/json/data-fields.txt
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Onde cada linha representa um arquivo que está disponível em https://challenges.coode.sh/food/data/json/{filename}.
 
-## Contributing
+É recomendável utilizar uma Collection secundária para controlar os históricos das importações e facilitar a validação durante a execução.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Ter em conta que:
 
-## Code of Conduct
+- Todos os produtos deverão ter os campos personalizados `imported_t` e `status`.
+- Limitar a importação a somente 100 produtos de cada arquivo.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### A REST API
 
-## Security Vulnerabilities
+Na REST API teremos um CRUD com os seguintes endpoints:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+ - `GET /`: Detalhes da API, se conexão leitura e escritura com a base de dados está OK, horário da última vez que o CRON foi executado, tempo online e uso de memória.
+ - `PUT /products/:code`: Será responsável por receber atualizações do Projeto Web
+ - `DELETE /products/:code`: Mudar o status do produto para `trash`
+ - `GET /products/:code`: Obter a informação somente de um produto da base de dados
+ - `GET /products`: Listar todos os produtos da base de dados, adicionar sistema de paginação para não sobrecarregar o `REQUEST`.
 
-## License
+## Extras
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+- **Diferencial 1** Front End con ReactJs, configurar um projeto web para listar os produtos cadastrados na REST API.
+- **Diferencial 2** Configurar Docker no Projeto para facilitar o Deploy da equipe de DevOps;
+- **Diferencial 3** Configurar um sistema de alerta por se tem algum falho durante o Sync dos produtos;
+- **Diferencial 4** Descrever a documentação da API utilizando o conceito de Open API 3.0;
+- **Diferencial 5** Escrever Unit Tests para os endpoints GET e PUT do CRUD;
